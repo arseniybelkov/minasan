@@ -6,9 +6,11 @@ use tokio::sync::Mutex;
 
 type MessageStorage = HashMap<ChatId, MessageId>;
 type UserStorage = HashMap<ChatId, HashSet<String>>;
+type PollStorage = HashMap<String, ChatId>;
 
 pub struct ChatStorage {
     users: Mutex<UserStorage>,
+    polls: Mutex<PollStorage>,
     messages: Mutex<MessageStorage>,
 }
 
@@ -16,13 +18,14 @@ impl ChatStorage {
     pub fn new() -> Self {
         Self {
             users: Mutex::new(UserStorage::new()),
+            polls: Mutex::new(PollStorage::new()),
             messages: Mutex::new(MessageStorage::new()),
         }
     }
 
     pub async fn add_chat(&self, chat_id: ChatId, message_id: MessageId) {
-        self.update_users(chat_id, Vec::new()).await;
-        self.update_message(chat_id, message_id).await;
+        self.users.lock().await.insert(chat_id, HashSet::new());
+        self.messages.lock().await.insert(chat_id, message_id);
     }
 
     pub async fn update_users(&self, chat_id: ChatId, new_users: Vec<String>) {
@@ -44,6 +47,14 @@ impl ChatStorage {
 
     pub async fn clean_users(&self, chat_id: ChatId) {
         self.users.lock().await.get_mut(&chat_id).unwrap().clear()
+    }
+
+    pub async fn update_poll(&self, chat_id: ChatId, poll_id: String) {
+        self.polls.lock().await.insert(poll_id, chat_id);
+    }
+
+    pub async fn poll2chat(&self, poll_id: &String) -> ChatId {
+        *self.polls.lock().await.get(poll_id).unwrap()
     }
 
     pub async fn remove_chat(&self, chat_id: ChatId) {
