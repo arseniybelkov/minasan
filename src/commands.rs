@@ -76,7 +76,12 @@ pub mod endpoints {
         message: Message,
         chat_storage: Arc<ChatStorage>,
     ) -> Result<(), RequestError> {
-        chat_storage.remove_chat(message.chat.id).await;
+        let poll_message_id = chat_storage.get_message_id(message.chat.id).await;
+        
+        if let Some(poll_message_id) = poll_message_id {
+            bot.delete_message(message.chat.id, poll_message_id).await?;
+            chat_storage.remove_chat(message.chat.id).await;
+        }
         bot.send_message(message.chat.id, "I will work here no more!")
             .await?;
         bot.leave_chat(message.chat.id).await?;
