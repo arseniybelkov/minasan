@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use teloxide::prelude::*;
-use teloxide::RequestError;
 use teloxide::utils::command::BotCommands;
+use teloxide::RequestError;
 
 use crate::storage::ChatStorage;
 
@@ -11,7 +11,7 @@ use crate::storage::ChatStorage;
 pub enum Command {
     /// Tag everyone.
     Minasan,
-    /// Stops the bot and removes it from the chat. 
+    /// Stops the bot and removes it from the chat.
     MinasanKill,
     /// Resend currently active poll to this chat.
     MinasanPoll,
