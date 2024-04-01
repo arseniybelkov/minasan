@@ -9,10 +9,15 @@ use crate::storage::ChatStorage;
 #[derive(BotCommands, Debug, PartialEq, Clone)]
 #[command(rename_rule = "snake_case")]
 pub enum Command {
+    /// Tag everyone.
     Minasan,
+    /// Stops the bot and removes it from the chat. 
     MinasanKill,
+    /// Resend currently active poll to this chat.
     MinasanPoll,
+    /// Bot creates poll and starts tracking users.
     MinasanStart,
+    /// Restarts the bot, recreating the poll.
     MinasanRestart,
 }
 
@@ -77,7 +82,7 @@ pub mod endpoints {
         chat_storage: Arc<ChatStorage>,
     ) -> Result<(), RequestError> {
         let poll_message_id = chat_storage.get_message_id(message.chat.id).await;
-        
+
         if let Some(poll_message_id) = poll_message_id {
             bot.delete_message(message.chat.id, poll_message_id).await?;
             chat_storage.remove_chat(message.chat.id).await;
