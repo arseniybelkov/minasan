@@ -7,17 +7,25 @@ use teloxide::RequestError;
 use crate::storage::ChatStorage;
 
 #[derive(BotCommands, Debug, PartialEq, Clone)]
-#[command(rename_rule = "snake_case")]
+#[command(rename_rule = "lowercase")]
 pub enum Command {
+    /// Displays commands description.
+    #[command(description = "Displays commands description.")]
+    MinasanHelp,
     /// Tag everyone.
+    #[command(description = "Tags every chat member consented to be tagged.")]
     Minasan,
     /// Stops the bot and removes it from the chat.
+    #[command(description = "Deletes the last active poll and removes the bot from the group.")]
     MinasanKill,
     /// Resend currently active poll to this chat.
+    #[command(description = "Shows the last active poll.")]
     MinasanPoll,
     /// Bot creates poll and starts tracking users.
+    #[command(description = "Activates the bot and starts poll.")]
     MinasanStart,
     /// Restarts the bot, recreating the poll.
+    #[command(description = "Recreates the poll.")]
     MinasanRestart,
 }
 
@@ -40,7 +48,7 @@ pub mod endpoints {
                 chat_id,
                 "\
                 You have already started the poll, if you want to restart, \
-                use the `/minasan_restart` command.\
+                use the `/minasanrestart` command.\
             ",
             )
             .await?;
@@ -63,7 +71,7 @@ pub mod endpoints {
             bot.send_message(
                 chat_id,
                 "You haven't started working with me! \
-                Use the `/minasan_start` command.",
+                Use the `/minasanstart` command.",
             )
             .await?;
             return Ok(());
@@ -130,6 +138,16 @@ pub mod endpoints {
         Ok(())
     }
 
+    pub async fn help(
+        bot: Bot,
+        message: Message,
+        _chat_storage: Arc<ChatStorage>,
+    ) -> Result<(), RequestError> {
+        bot.send_message(message.chat.id, Command::descriptions().to_string())
+            .await?;
+        Ok(())
+    }
+
     pub async fn get_poll(
         bot: Bot,
         message: Message,
@@ -142,7 +160,7 @@ pub mod endpoints {
             bot.send_message(
                 chat_id,
                 "You haven't started any poll.\
-                Please, use the `/minasan_start` command.",
+                Please, use the `/minasanstart` command.",
             )
             .await?;
             return Ok(());
