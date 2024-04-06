@@ -4,19 +4,16 @@ on:
   push:
     branches: [ "master" ]
   pull_request:
-    branches: [ "master" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  lint:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
       - name: Clippy
-        run: cargo clippy --no-deps -- -D warningsn
+        run: cargo clippy --no-deps -- -D warnings
       - name: Fmt
         run: cargo fmt --check
