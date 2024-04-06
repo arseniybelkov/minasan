@@ -28,18 +28,15 @@ impl ChatStorage {
         self.messages.lock().await.insert(chat_id, message_id);
     }
 
-    pub async fn add_user(&self, chat_id: ChatId, new_user: String) {
+    pub async fn add_user(&self, chat_id: ChatId, new_user: String) -> Option<()> {
         let mut users = self.users.lock().await;
-        users.get_mut(&chat_id).unwrap().insert(new_user);
+        users.get_mut(&chat_id)?.insert(new_user);
+        Some(())
     }
 
-    pub async fn remove_user(&self, chat_id: ChatId, user: String) {
-        self.users
-            .lock()
-            .await
-            .get_mut(&chat_id)
-            .unwrap()
-            .remove(&user);
+    pub async fn remove_user(&self, chat_id: ChatId, user: String) -> Option<()> {
+        self.users.lock().await.get_mut(&chat_id)?.remove(&user);
+        Some(())
     }
 
     pub async fn update_message(&self, chat_id: ChatId, message_id: MessageId) {
@@ -54,8 +51,9 @@ impl ChatStorage {
         self.messages.lock().await.get(&chat_id).cloned()
     }
 
-    pub async fn clean_users(&self, chat_id: ChatId) {
-        self.users.lock().await.get_mut(&chat_id).unwrap().clear()
+    pub async fn clean_users(&self, chat_id: ChatId) -> Option<()> {
+        self.users.lock().await.get_mut(&chat_id)?.clear();
+        Some(())
     }
 
     pub async fn update_poll(&self, chat_id: ChatId, poll_id: String) {
@@ -66,8 +64,9 @@ impl ChatStorage {
         self.polls.lock().await.get(poll_id).cloned()
     }
 
-    pub async fn remove_chat(&self, chat_id: ChatId) {
-        self.users.lock().await.remove(&chat_id).unwrap();
-        self.messages.lock().await.remove(&chat_id).unwrap();
+    pub async fn remove_chat(&self, chat_id: ChatId) -> Option<()> {
+        self.users.lock().await.remove(&chat_id)?;
+        self.messages.lock().await.remove(&chat_id)?;
+        Some(())
     }
 }

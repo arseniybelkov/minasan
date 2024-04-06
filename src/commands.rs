@@ -1,3 +1,5 @@
+// Poll2ChatId is really stupid, need to change it in the nearest future
+
 use std::sync::Arc;
 
 use teloxide::prelude::*;
@@ -55,7 +57,7 @@ pub mod endpoints {
             )
             .await?;
         } else {
-            let message_id = create_poll(bot, chat_id, chat_storage.clone()).await?;
+            let message_id = create_poll(bot, chat_id, Arc::clone(&chat_storage)).await?;
             chat_storage.add_chat(chat_id, message_id).await;
         }
         Ok(())
@@ -67,22 +69,19 @@ pub mod endpoints {
         chat_storage: Arc<ChatStorage>,
     ) -> Result<(), RequestError> {
         let chat_id = message.chat.id;
-        let message_id = chat_storage.get_message_id(chat_id).await;
 
-        if message_id.is_none() {
+        if let Some(message_id) = chat_storage.get_message_id(chat_id).await {
+            bot.delete_message(chat_id, message_id).await?;
+            chat_storage.clean_users(chat_id).await;
+            create_poll(bot, chat_id, chat_storage).await?;
+        } else {
             bot.send_message(
                 chat_id,
-                "You haven't started working with me! \
-                Use the `/minasanstart` command.",
+                "You haven't started working with me. \
+            Please use `/minasanstart` command.",
             )
             .await?;
-            return Ok(());
         }
-
-        let message_id = message_id.unwrap();
-        bot.delete_message(chat_id, message_id).await?;
-        chat_storage.clean_users(chat_id).await;
-        create_poll(bot, chat_id, chat_storage).await?;
         Ok(())
     }
 
@@ -137,7 +136,13 @@ pub mod endpoints {
         chat_storage: Arc<ChatStorage>,
         poll_answer: PollAnswer,
     ) -> Result<(), RequestError> {
-        let chat_id = chat_storage.poll2chat(&poll_answer.poll_id).await.unwrap();
+        let Some(chat_id) = chat_storage.poll2chat(&poll_answer.poll_id).await else {
+            log::warn!(
+                "Trying to update users for unstored chat, \
+            bot was likely restarted there."
+            );
+            return Ok(());
+        };
 
         if let Some(v) = poll_answer.option_ids.first() {
             match v {
@@ -154,7 +159,7 @@ pub mod endpoints {
         } else {
             chat_storage
                 .remove_user(chat_id, poll_answer.user.username.unwrap())
-                .await
+                .await;
         };
         Ok(())
     }
@@ -176,20 +181,17 @@ pub mod endpoints {
     ) -> Result<(), RequestError> {
         let chat_id = message.chat.id;
 
-        let message_id = chat_storage.get_message_id(chat_id).await;
-        if message_id.is_none() {
+        if let Some(message_id) = chat_storage.get_message_id(chat_id).await {
+            bot.send_message(chat_id, "Here's your poll.").await?;
+            bot.forward_message(chat_id, chat_id, message_id).await?;
+        } else {
             bot.send_message(
                 chat_id,
                 "You haven't started any poll.\
                 Please, use the `/minasanstart` command.",
             )
             .await?;
-            return Ok(());
         }
-
-        let message_id = message_id.unwrap();
-        bot.send_message(chat_id, "Here's your poll.").await?;
-        bot.forward_message(chat_id, chat_id, message_id).await?;
         Ok(())
     }
 
