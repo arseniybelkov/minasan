@@ -1,4 +1,7 @@
+#![forbid(unsafe_code)]
+
 use std::sync::Arc;
+use simplelog::*;
 
 use teloxide::prelude::*;
 
@@ -10,6 +13,16 @@ mod storage;
 
 #[tokio::main]
 async fn main() {
+
+    TermLogger::init(
+        LevelFilter::Info,
+        ConfigBuilder::default()
+            .add_filter_allow("minasan".to_string())
+            .build(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    ).expect("TermLogger has already been created");
+
     let bot = Bot::from_env();
     let chat_storage = Arc::new(ChatStorage::new());
 

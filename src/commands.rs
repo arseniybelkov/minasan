@@ -145,7 +145,7 @@ pub mod endpoints {
                     }
                 },
                 1 => {},
-                x => panic!("Invalid poll option {x} in chat # {chat_id}, check what the fuck has happened!"),
+                x => log::error!("Invalid poll option {x} in chat # {chat_id}, check what the fuck has happened!"),
             }
         } else {
             chat_storage
