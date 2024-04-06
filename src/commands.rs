@@ -36,6 +36,8 @@ pub mod endpoints {
 
     use super::*;
 
+    const POLL_OPTIONS: [&str; 2] = ["I do.", "I don't."];
+
     pub async fn start(
         bot: Bot,
         message: Message,
@@ -107,19 +109,22 @@ pub mod endpoints {
         chat_storage: Arc<ChatStorage>,
     ) -> Result<(), RequestError> {
         let chat_id = message.chat.id;
-        let users = chat_storage.get_users(chat_id).await.unwrap();
+        if let Some(users) = chat_storage.get_users(chat_id).await {
+            let message = if users.is_empty() {
+                String::from("No user provided any @username!!!")
+            } else {
+                users
+                    .into_iter()
+                    .map(|s| format!("@{s}"))
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            };
 
-        let message = if users.is_empty() {
-            String::from("No user provided any @username!!!")
+            bot.send_message(chat_id, message).await?;
         } else {
-            users
-                .into_iter()
-                .map(|s| format!("@{s}"))
-                .collect::<Vec<String>>()
-                .join(" ")
-        };
-
-        bot.send_message(chat_id, message).await?;
+            bot.send_message(chat_id, "You haven't started the poll, \
+            please use `/minasanstart` command").await?;
+        }
         Ok(())
     }
 
@@ -130,11 +135,23 @@ pub mod endpoints {
     ) -> Result<(), RequestError> {
         let chat_id = chat_storage.poll2chat(&poll_answer.poll_id).await;
 
-        if chat_storage.get_message_id(chat_id).await.is_some() {
+        if let Some(v) = poll_answer.option_ids.first() {
+            match v {
+                0 => {
+                    if chat_storage.get_message_id(chat_id).await.is_some() {
+                        chat_storage
+                            .add_user(chat_id, poll_answer.user.username.unwrap())
+                            .await;
+                    }
+                },
+                1 => {},
+                x => panic!("Invalid poll option {x} in chat # {chat_id}, check what the fuck has happened!"),
+            }
+        } else {
             chat_storage
-                .update_users(chat_id, vec![poll_answer.user.username.unwrap()])
-                .await;
-        }
+                .remove_user(chat_id, poll_answer.user.username.unwrap())
+                .await
+        };
         Ok(())
     }
 
@@ -182,7 +199,7 @@ pub mod endpoints {
             via submission of your @username?\
             ";
 
-        let poll_options = [String::from("I do."), String::from("I don't.")];
+        let poll_options = POLL_OPTIONS.into_iter().map(String::from);
 
         let mut poll_payload = SendPoll::new(chat_id, question_str, poll_options);
         poll_payload.is_anonymous = Some(false);
