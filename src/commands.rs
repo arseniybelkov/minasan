@@ -122,8 +122,12 @@ pub mod endpoints {
 
             bot.send_message(chat_id, message).await?;
         } else {
-            bot.send_message(chat_id, "You haven't started the poll, \
-            please use `/minasanstart` command").await?;
+            bot.send_message(
+                chat_id,
+                "You haven't started the poll, \
+            please use `/minasanstart` command",
+            )
+            .await?;
         }
         Ok(())
     }

@@ -34,9 +34,14 @@ impl ChatStorage {
     }
 
     pub async fn remove_user(&self, chat_id: ChatId, user: String) {
-        self.users.lock().await.get_mut(&chat_id).unwrap().remove(&user);
+        self.users
+            .lock()
+            .await
+            .get_mut(&chat_id)
+            .unwrap()
+            .remove(&user);
     }
-    
+
     pub async fn update_message(&self, chat_id: ChatId, message_id: MessageId) {
         self.messages.lock().await.insert(chat_id, message_id);
     }
@@ -52,7 +57,7 @@ impl ChatStorage {
     pub async fn clean_users(&self, chat_id: ChatId) {
         self.users.lock().await.get_mut(&chat_id).unwrap().clear()
     }
-    
+
     pub async fn update_poll(&self, chat_id: ChatId, poll_id: String) {
         self.polls.lock().await.insert(poll_id, chat_id);
     }

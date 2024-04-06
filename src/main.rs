@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
-use std::sync::Arc;
 use simplelog::*;
+use std::sync::Arc;
 
 use teloxide::prelude::*;
 
@@ -13,7 +13,6 @@ mod storage;
 
 #[tokio::main]
 async fn main() {
-
     TermLogger::init(
         LevelFilter::Info,
         ConfigBuilder::default()
@@ -21,7 +20,8 @@ async fn main() {
             .build(),
         TerminalMode::Mixed,
         ColorChoice::Auto,
-    ).expect("TermLogger has already been created");
+    )
+    .expect("TermLogger has already been created");
 
     let bot = Bot::from_env();
     let chat_storage = Arc::new(ChatStorage::new());
@@ -35,7 +35,7 @@ async fn main() {
                     .branch(dptree::case![Command::MinasanPoll].endpoint(endpoints::get_poll))
                     .branch(dptree::case![Command::MinasanKill].endpoint(endpoints::kill))
                     .branch(dptree::case![Command::Minasan].endpoint(endpoints::tag_everyone))
-                    .branch(dptree::case![Command::MinasanHelp].endpoint(endpoints::help))
+                    .branch(dptree::case![Command::MinasanHelp].endpoint(endpoints::help)),
             ),
         )
         .branch(Update::filter_poll_answer().endpoint(endpoints::update_users));
