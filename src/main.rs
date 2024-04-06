@@ -21,7 +21,8 @@ async fn main() {
                     .branch(dptree::case![Command::MinasanRestart].endpoint(endpoints::restart))
                     .branch(dptree::case![Command::MinasanPoll].endpoint(endpoints::get_poll))
                     .branch(dptree::case![Command::MinasanKill].endpoint(endpoints::kill))
-                    .branch(dptree::case![Command::Minasan].endpoint(endpoints::tag_everyone)),
+                    .branch(dptree::case![Command::Minasan].endpoint(endpoints::tag_everyone))
+                    .branch(dptree::case![Command::MinasanHelp].endpoint(endpoints::help))
             ),
         )
         .branch(Update::filter_poll_answer().endpoint(endpoints::update_users));
