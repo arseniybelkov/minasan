@@ -1,3 +1,5 @@
+// ChatStorage needs to be able to be dumped to disk and loaded from it.
+
 use std::collections::{HashMap, HashSet};
 
 use teloxide::prelude::*;

@@ -215,9 +215,12 @@ pub mod endpoints {
         let poll_id = match message.kind {
             MessageKind::Common(msg) => match msg.media_kind {
                 MediaKind::Poll(mpoll) => mpoll.poll.id,
-                _ => panic!("Not Poll"),
+                _ => panic!(
+                    "By creating a poll, bot created something else, \
+                please recheck the code!"
+                ),
             },
-            _ => panic!("Not common"),
+            _ => panic!("Wrong MessageKind for Poll!"),
         };
 
         chat_storage.update_message(chat_id, message.id).await;
