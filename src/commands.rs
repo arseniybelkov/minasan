@@ -133,7 +133,7 @@ pub mod endpoints {
         chat_storage: Arc<ChatStorage>,
         poll_answer: PollAnswer,
     ) -> Result<(), RequestError> {
-        let chat_id = chat_storage.poll2chat(&poll_answer.poll_id).await;
+        let chat_id = chat_storage.poll2chat(&poll_answer.poll_id).await.unwrap();
 
         if let Some(v) = poll_answer.option_ids.first() {
             match v {
