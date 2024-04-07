@@ -1,6 +1,11 @@
 // ChatStorage needs to be able to be dumped to disk and loaded from it.
 
+use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::Path;
+use std::str::FromStr;
 
 use teloxide::prelude::*;
 use teloxide::types::MessageId;
@@ -70,5 +75,77 @@ impl ChatStorage {
         self.users.lock().await.remove(&chat_id)?;
         self.messages.lock().await.remove(&chat_id)?;
         Some(())
+    }
+}
+
+impl ChatStorage {
+    pub async fn dump(&self, path: &str) -> std::io::Result<()> {
+        let user_storage = self.users.lock().await;
+        // might have potential race condition here
+        let message_storage = self.messages.lock().await;
+        let poll2chat_ids = self.polls.lock().await;
+
+        for (chat_id, users) in user_storage.iter() {
+            let message_id = message_storage.get(chat_id).unwrap();
+            let poll_id = poll2chat_ids
+                .iter()
+                .find(|(_, v)| *v == chat_id)
+                .map_or("null", |(p, _)| p)
+                .to_string();
+
+            let json = serde_json::json!({
+                "message_id": message_id.to_string(),
+                "poll_id": poll_id,
+                "users": users,
+            });
+
+            let chat_id_str = chat_id.to_string();
+            let file_name = format!("{chat_id_str}.json");
+
+            let file = File::create(Path::new(path).join(file_name))?;
+            let mut writer = BufWriter::new(file);
+            serde_json::to_writer(&mut writer, &json)?;
+            writer.flush()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn load(path: &Path) -> Self {
+        let mut user_storage = UserStorage::new();
+        let mut message_storage = MessageStorage::new();
+        let mut poll2chat_id = PollStorage::new();
+
+        for p in path.read_dir().unwrap().flatten() {
+            if p.path().is_file() {
+                let content = std::fs::read_to_string(p.path()).unwrap();
+                let json =
+                    serde_json::from_str::<HashMap<String, Value>>(content.as_str()).unwrap();
+
+                let users = json
+                    .get("users")
+                    .unwrap()
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<HashSet<String>>();
+                let message_id =
+                    MessageId(json.get("message_id").unwrap().as_i64().unwrap() as i32);
+                let poll_id = json.get("poll_id").unwrap().to_string();
+                let chat_id =
+                    ChatId(i64::from_str(p.path().to_str().unwrap().to_string().as_str()).unwrap());
+
+                user_storage.insert(chat_id, users);
+                message_storage.insert(chat_id, message_id);
+                poll2chat_id.insert(poll_id, chat_id);
+            }
+        }
+
+        Self {
+            users: Mutex::new(user_storage),
+            messages: Mutex::new(message_storage),
+            polls: Mutex::new(poll2chat_id),
+        }
     }
 }
