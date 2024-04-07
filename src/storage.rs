@@ -79,7 +79,7 @@ impl ChatStorage {
 }
 
 impl ChatStorage {
-    pub async fn dump(&self, path: &str) -> std::io::Result<()> {
+    pub async fn dump(&self, path: &Path) -> std::io::Result<()> {
         let user_storage = self.users.lock().await;
         // might have potential race condition here
         let message_storage = self.messages.lock().await;
@@ -94,7 +94,7 @@ impl ChatStorage {
                 .to_string();
 
             let json = serde_json::json!({
-                "message_id": message_id.to_string(),
+                "message_id": message_id.0,
                 "poll_id": poll_id,
                 "users": users,
             });
@@ -102,7 +102,7 @@ impl ChatStorage {
             let chat_id_str = chat_id.to_string();
             let file_name = format!("{chat_id_str}.json");
 
-            let file = File::create(Path::new(path).join(file_name))?;
+            let file = File::create(path.join(file_name))?;
             let mut writer = BufWriter::new(file);
             serde_json::to_writer(&mut writer, &json)?;
             writer.flush()?;
@@ -128,17 +128,21 @@ impl ChatStorage {
                     .as_array()
                     .unwrap()
                     .iter()
-                    .map(|v| v.to_string())
+                    .map(|v| v.as_str().unwrap().to_string())
                     .collect::<HashSet<String>>();
                 let message_id =
                     MessageId(json.get("message_id").unwrap().as_i64().unwrap() as i32);
-                let poll_id = json.get("poll_id").unwrap().to_string();
-                let chat_id =
-                    ChatId(i64::from_str(p.path().to_str().unwrap().to_string().as_str()).unwrap());
+                let poll_id = json.get("poll_id").unwrap().as_str().unwrap().to_string();
+                let chat_id = ChatId(
+                    i64::from_str(p.path().as_path().file_stem().unwrap().to_str().unwrap())
+                        .unwrap(),
+                );
 
                 user_storage.insert(chat_id, users);
                 message_storage.insert(chat_id, message_id);
-                poll2chat_id.insert(poll_id, chat_id);
+                if poll_id != "null" {
+                    poll2chat_id.insert(poll_id, chat_id);
+                }
             }
         }
 
@@ -147,5 +151,160 @@ impl ChatStorage {
             messages: Mutex::new(message_storage),
             polls: Mutex::new(poll2chat_id),
         }
+    }
+}
+
+// Here on only are the tests for `ChatStorage`.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_dump() {
+        let chat_storage = ChatStorage::new();
+
+        let chat_id = ChatId(0);
+        chat_storage.add_chat(chat_id, MessageId(1)).await;
+        chat_storage
+            .add_user(chat_id, "user1".to_string())
+            .await
+            .unwrap();
+        chat_storage
+            .add_user(chat_id, "user2".to_string())
+            .await
+            .unwrap();
+
+        let chat_id = ChatId(123);
+        chat_storage.add_chat(chat_id, MessageId(321)).await;
+        chat_storage
+            .add_user(chat_id, "user3".to_string())
+            .await
+            .unwrap();
+        chat_storage
+            .add_user(chat_id, "user4".to_string())
+            .await
+            .unwrap();
+        chat_storage.update_poll(chat_id, "12345".to_string()).await;
+
+        let tmp_dir = tempfile::tempdir().unwrap();
+        chat_storage.dump(tmp_dir.path()).await.unwrap();
+
+        let mut file_names = tmp_dir
+            .path()
+            .read_dir()
+            .unwrap()
+            .flatten()
+            .map(|p| {
+                p.path()
+                    .as_path()
+                    .file_stem()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+        file_names.sort();
+        let target = vec!["0".to_string(), "123".to_string()];
+
+        assert_eq!(file_names, target);
+    }
+
+    #[tokio::test]
+    async fn test_load() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+
+        let json1 = json!({
+            "users": vec!["user1", "user2"],
+            "message_id": 123,
+            "poll_id": "123456",
+        });
+
+        let file = File::create(tmp_dir.path().join("1.json")).unwrap();
+        let mut writer = BufWriter::new(file);
+        serde_json::to_writer(&mut writer, &json1).unwrap();
+        writer.flush().unwrap();
+
+        let json2 = json!({
+            "users": vec!["user3"],
+            "message_id": 890,
+            "poll_id": "null",
+        });
+
+        let file = File::create(tmp_dir.path().join("2.json")).unwrap();
+        let mut writer = BufWriter::new(file);
+        serde_json::to_writer(&mut writer, &json2).unwrap();
+        writer.flush().unwrap();
+
+        let chat_storage = ChatStorage::load(tmp_dir.path());
+
+        let (chat_id1, chat_id2) = (ChatId(1), ChatId(2));
+        let (users1, users2) = (
+            HashSet::from(["user1".to_string(), "user2".to_string()]),
+            HashSet::from([String::from("user3")]),
+        );
+        let (message_id1, message_id2) = (MessageId(123), MessageId(890));
+        let (poll_id1, poll_id2) = (String::from("123456"), String::from("abc"));
+
+        assert_eq!(chat_storage.get_users(chat_id1).await.unwrap(), users1);
+        assert_eq!(chat_storage.get_users(chat_id2).await.unwrap(), users2);
+
+        assert_eq!(
+            chat_storage.get_message_id(chat_id1).await.unwrap(),
+            message_id1
+        );
+        assert_eq!(
+            chat_storage.get_message_id(chat_id2).await.unwrap(),
+            message_id2
+        );
+
+        assert_eq!(chat_storage.poll2chat(&poll_id1).await.unwrap(), chat_id1);
+        assert!(chat_storage.poll2chat(&poll_id2).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_load_dump_consistency() {
+        let tempdir = tempfile::tempdir().unwrap();
+
+        let source = ChatStorage::new();
+
+        let chat_id = ChatId(101);
+        source.add_chat(chat_id, MessageId(1)).await;
+        source
+            .add_user(chat_id, "usernamesome".to_string())
+            .await
+            .unwrap();
+        source.add_user(chat_id, "user2".to_string()).await.unwrap();
+
+        let chat_id = ChatId(100);
+        source.add_chat(chat_id, MessageId(321)).await;
+        source
+            .add_user(chat_id, "user3312".to_string())
+            .await
+            .unwrap();
+        source
+            .add_user(chat_id, "someuser1234".to_string())
+            .await
+            .unwrap();
+        source.update_poll(chat_id, "12345".to_string()).await;
+        source.dump(tempdir.path()).await.unwrap();
+
+        let target = ChatStorage::load(tempdir.path());
+
+        assert_eq!(
+            source.users.lock().await.clone(),
+            target.users.lock().await.clone()
+        );
+        assert_eq!(
+            source.messages.lock().await.clone(),
+            target.messages.lock().await.clone()
+        );
+        assert_eq!(
+            source.polls.lock().await.clone(),
+            target.polls.lock().await.clone()
+        );
     }
 }
