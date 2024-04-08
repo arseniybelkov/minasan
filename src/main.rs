@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 
 use simplelog::*;
+use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use teloxide::prelude::*;
 
@@ -23,6 +25,10 @@ async fn main() {
     )
     .expect("TermLogger has already been created");
 
+    run().await;
+}
+
+pub async fn run() {
     let bot = Bot::from_env();
     let chat_storage = Arc::new(ChatStorage::new());
 
@@ -40,9 +46,22 @@ async fn main() {
         )
         .branch(Update::filter_poll_answer().endpoint(endpoints::update_users));
 
-    Dispatcher::builder(bot, handler)
+    let storage = Arc::clone(&chat_storage);
+
+    let mut dispatcher = Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![chat_storage])
-        .build()
-        .dispatch()
-        .await;
+        .build();
+
+    let dumper = tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(3600)).await;
+            storage.dump(Path::new("")).await.unwrap();
+            log::info!("Dumped database to disk.");
+        }
+    });
+
+    tokio::select! {
+        _ = dispatcher.dispatch() => {},
+        _ = dumper => {},
+    }
 }
