@@ -1,4 +1,5 @@
-// ChatStorage needs to be able to be dumped to disk and loaded from it.
+// Refactor all the loading and dumping (serde::{Serialize, Desirialize}
+// Remove poll2id
 
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
