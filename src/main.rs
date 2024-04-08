@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use clap::Parser;
 use simplelog::*;
 use std::path::Path;
 use std::sync::Arc;
@@ -10,11 +11,14 @@ use teloxide::prelude::*;
 use crate::commands::{endpoints, Command};
 use crate::storage::ChatStorage;
 
+mod cli;
 mod commands;
 mod storage;
 
 #[tokio::main]
 async fn main() {
+    let args = cli::Args::parse();
+
     TermLogger::init(
         LevelFilter::Info,
         ConfigBuilder::default()
@@ -25,12 +29,22 @@ async fn main() {
     )
     .expect("TermLogger has already been created");
 
-    run().await;
+    run(args.path, args.interval).await;
 }
 
-pub async fn run() {
+pub async fn run(path: Option<String>, interval: u16) {
     let bot = Bot::from_env();
-    let chat_storage = Arc::new(ChatStorage::new());
+    let chat_storage = Arc::new(match path {
+        Some(ref p) => {
+            log::info!("ChatStorage is loaded from {p}");
+            log::info!("Disk dump will happen after {interval} seconds");
+            ChatStorage::load(Path::new(p))
+        }
+        None => {
+            log::info!("ChatStorage created anew.");
+            ChatStorage::new()
+        }
+    });
 
     let handler = dptree::entry()
         .branch(
@@ -54,9 +68,13 @@ pub async fn run() {
 
     let dumper = tokio::spawn(async move {
         loop {
-            tokio::time::sleep(Duration::from_secs(3600)).await;
-            storage.dump(Path::new("")).await.unwrap();
-            log::info!("Dumped database to disk.");
+            tokio::time::sleep(Duration::from_secs(interval as u64)).await;
+            if let Some(ref p) = path {
+                match storage.dump(Path::new(p)).await {
+                    Ok(count) => log::info!("Dumped database ({count} entries) to {p}."),
+                    Err(err) => log::warn!("Database dump failed: {err}."),
+                }
+            }
         }
     });
 

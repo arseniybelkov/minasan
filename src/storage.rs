@@ -79,11 +79,13 @@ impl ChatStorage {
 }
 
 impl ChatStorage {
-    pub async fn dump(&self, path: &Path) -> std::io::Result<()> {
+    pub async fn dump(&self, path: &Path) -> std::io::Result<usize> {
         let user_storage = self.users.lock().await;
         // might have potential race condition here
         let message_storage = self.messages.lock().await;
         let poll2chat_ids = self.polls.lock().await;
+
+        let mut counter = 0;
 
         for (chat_id, users) in user_storage.iter() {
             let message_id = message_storage.get(chat_id).unwrap();
@@ -106,9 +108,10 @@ impl ChatStorage {
             let mut writer = BufWriter::new(file);
             serde_json::to_writer(&mut writer, &json)?;
             writer.flush()?;
+            counter += 1;
         }
 
-        Ok(())
+        Ok(counter)
     }
 
     pub fn load(path: &Path) -> Self {
@@ -190,7 +193,8 @@ mod tests {
         chat_storage.update_poll(chat_id, "12345".to_string()).await;
 
         let tmp_dir = tempfile::tempdir().unwrap();
-        chat_storage.dump(tmp_dir.path()).await.unwrap();
+        let n_dumped = chat_storage.dump(tmp_dir.path()).await.unwrap();
+        assert_eq!(n_dumped, 2);
 
         let mut file_names = tmp_dir
             .path()
