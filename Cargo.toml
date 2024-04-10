@@ -2,6 +2,12 @@
 name = "minasan"
 version = "0.0.0"
 edition = "2021"
+authors = ["Arseniy Belkov <arsfizteh@gmail.com>"]
+description = "Telegram Bot to tag all the chat members."
+readme = "README.md"
+repository = "https://github.com/arseniybelkov/minasan"
+license = "MIT"
+keywords = ["telegram", "bot"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
