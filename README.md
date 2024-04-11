@@ -6,6 +6,8 @@
 
 Telegram Bot to tag all the chat members
 
+:warning: __The bot is NOT DONE yet.__ :warning:  
+
 # Usage
 
 | Command         | Description                                                        |
