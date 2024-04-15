@@ -2,7 +2,7 @@ name: Crates.io
 
 on:
   release:
-    types: [ "released" ]
+    types: [ released ]
 
 env:
   CARGO_TERM_COLOR: always
