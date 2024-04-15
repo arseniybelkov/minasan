@@ -14,5 +14,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Test Debug
+      - name: Dry Run
         run: cargo publish --dry-run
