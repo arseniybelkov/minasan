@@ -73,6 +73,7 @@ impl ChatStorage {
     }
 
     pub async fn remove_chat(&self, chat_id: ChatId) -> Option<()> {
+        // TODO: should be under one lock (try rwlock)
         self.users.lock().await.remove(&chat_id)?;
         self.messages.lock().await.remove(&chat_id)?;
         Some(())
