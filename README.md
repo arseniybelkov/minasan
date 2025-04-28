@@ -1,8 +1,7 @@
 # minasan
-> _In the ninja world, those who don't follow the rules are trash._  
-> _But, those who abandon their friends are even worse than trash._
+> __皆さん__ - _all; everyone; everybody (honorific or respectful)_
 > 
-> _-_ Obito Uchiha, "Naruto Shippuden"
+> [Jisho.org](https://jisho.org/search/minasan)
 
 Telegram Bot to tag all the chat members
 

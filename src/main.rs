@@ -66,7 +66,7 @@ pub async fn run(path: Option<String>, interval: u16) {
         .dependencies(dptree::deps![chat_storage])
         .build();
 
-    let dumper = tokio::spawn(async move {
+    let database_dumper = tokio::spawn(async move {
         loop {
             tokio::time::sleep(Duration::from_secs(interval as u64)).await;
             if let Some(ref p) = path {
@@ -74,12 +74,14 @@ pub async fn run(path: Option<String>, interval: u16) {
                     Ok(count) => log::info!("Dumped database ({count} entries) to {p}."),
                     Err(err) => log::warn!("Database dump failed: {err}."),
                 }
+            } else {
+                log::warn!("No db dump happened since no path was specified.");
             }
         }
     });
 
-    tokio::select! {
-        _ = dispatcher.dispatch() => {},
-        _ = dumper => {},
+    let result = tokio::join!(dispatcher.dispatch(), database_dumper);
+    if let Err(e) = result.1 {
+        panic!("{}", e);
     }
 }
