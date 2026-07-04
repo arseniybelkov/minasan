@@ -44,6 +44,6 @@ base and interval of its dump to disk in seconds.
 
 One can also pull docker image  
 ```commandline
-docker pull arseniybelkov/minasan
+docker pull arsenibialkou/minasan:0.0.1_x86
 docker run ...
 ```
